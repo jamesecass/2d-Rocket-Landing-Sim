@@ -2,6 +2,9 @@ import pygame, math, random, copy, numpy
 
 FPS = 60
 
+trained_or_not = input("Do you want to use the trained network? (Y/N)")
+save_or_not = input("Do you want these networks to be saved? (Y/N)")
+
 screen = pygame.display.set_mode((500,500),pygame.NOFRAME)
 clock = pygame.time.Clock()
 
@@ -41,9 +44,27 @@ class NeuralNetwork:
         mask = numpy.random.uniform(0,1,(self.bias2.shape))
         mutation = numpy.random.uniform(-Mutation_scale,Mutation_scale,(self.bias2.shape))
         self.bias2 = numpy.where(mask < 0.05,mutation + self.bias2,self.bias2) #Mutation for Output Bias
+
+    def save(self,filename="best_rocket_nn.npz"):
+        numpy.savez(
+            filename,
+            w1 = self.weights1,
+            b1 = self.bias1,
+            w2 = self.weights2,
+            b2 = self.bias2,
+        )
+        print("The Best Network has been Saved")
+
+    def load(self,filename):
+        data = numpy.load(filename)
+        self.weights1 = data["w1"]
+        self.weights2 = data["w2"]
+        self.bias1 = data["b1"]
+        self.bias2 = data["b2"]
     
 class Rocket:
     def __init__(self,x,y):
+        self.frames_alive = 0
         self.fitness = 0
         self.active = True
 
@@ -54,7 +75,7 @@ class Rocket:
         self.width = 20
         self.height = 50
 
-        self.fuel = 50
+        self.fuel = 35
 
         self.vx = 0
         self.vy = 0
@@ -78,14 +99,18 @@ class Rocket:
         dx = pad_center - self.x
         angle = abs(self.get_normalised_angle())
 
-        self.fitness = 5000
+        self.fitness = 2000
 
         proximity = max(0, 1 - abs(dx) / 200)
         self.fitness -= abs(self.vx) * (200 + proximity * 800)
 
         self.fitness -= abs(self.vy) * 300
         self.fitness -= angle * 30
-        self.fitness -= abs(dx) * 10
+        starting_distance = abs(240 - (pad_x + 50))
+        current_distance = abs((pad_x + 50) - self.x)
+
+        distance_efficiency = starting_distance - current_distance
+        self.fitness += distance_efficiency * 15
 
     def update(self,random_x):
         if not self.active:
@@ -99,12 +124,16 @@ class Rocket:
         self.y += self.vy
         self.x += self.vx
 
+        self.frames_alive += 1
+
+        self.fitness -= abs(self.get_normalised_angle()) * 0.5
+
         if self.y >= PAD_Y and random_x < self.x < random_x + 100:
             self.y = PAD_Y
 
             landing_angle = self.get_normalised_angle()
 
-            if abs(self.vy) < 1 and abs(landing_angle) <= 20:
+            if abs(self.vy) < 1.2 and abs(landing_angle) <= 20:
                 pad_center = random_x + 50
                 landing_precision = abs(pad_center - self.x) 
 
@@ -115,15 +144,16 @@ class Rocket:
 
                 landing_bonus -= landing_precision * 40   
                 landing_bonus -= landing_angle * 100      
-                landing_bonus -= landing_speed * 1000      
+                landing_bonus -= landing_speed * 1000   
+                landing_bonus -= self.frames_alive   
 
                 landing_bonus += self.fuel * 20     
 
                 self.fitness += max(landing_bonus, 1000)
-                print(f"SAFE LANDING  {self.fitness}")
+                print(f"L {self.fitness}")
             else:
                 self.calculate_fitness(random_x)
-                print(f"CRASH  {self.fitness}")
+                print(f"C {self.fitness}")
 
             self.vx = 0
             self.vy = 0
@@ -132,7 +162,7 @@ class Rocket:
 
         elif self.y >= GROUND_Y:
             self.calculate_fitness(random_x)
-            print(f"CRASH  {self.fitness}")
+            print(f"C {self.fitness}")
 
             self.vx = 0
             self.vy = 0
@@ -171,7 +201,14 @@ print("First rocket:", rockets[0].x, rockets[0].y, rockets[0].active)
 
 networks = [NeuralNetwork(6) for _ in range(population_size)]
 
-Mutation_scale = 0.5
+Mutation_scale = 1
+
+for network in networks:
+    if trained_or_not.lower() == 'y':
+        network.load("best_rocket_nn.npz")
+        Mutation_scale = 0.1
+        network.mutate(Mutation_scale)
+
 Running = True
 
 while Running:
@@ -205,6 +242,11 @@ while Running:
 
         rocket.update(random_x)
 
+        if abs(rocket.get_normalised_angle()) > 90 or rocket.x < 0 or rocket.x > 500:
+            rocket.active = False
+            rocket.calculate_fitness(random_x)
+            rocket.fitness -= 2000  # Hard penalty for losing flight control
+
 
     # NEW GENERATION
     if all(not rocket.active for rocket in rockets):
@@ -212,11 +254,14 @@ while Running:
 
         # Top 5 Neural Nets
         top_5_indices = sorted_indices[:5]
-
+    
         # Print Highest score
         best_index = top_5_indices[0]
         print("Generation:", generation)
         print("Best fitness:", rockets[best_index].fitness)
+        if save_or_not.lower() == 'y':
+            networks[best_index].save("best_rocket_nn.npz")
+        
 
         new_networks = []
 
@@ -235,7 +280,7 @@ while Running:
         random_x = random.randint(100, 400)
 
         generation += 1
-        Mutation_scale = max(Mutation_scale - 0.01,0.02)
+        Mutation_scale = max(Mutation_scale - 0.02,0.02)
         print(f"{Mutation_scale:2f}")
 
 

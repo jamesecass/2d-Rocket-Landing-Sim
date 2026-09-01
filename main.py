@@ -1,11 +1,19 @@
 import pygame, math, random, copy, numpy
 
 FPS = 60
+HEIGHT = 450
+WIDTH = 700
+BOTTOM_BAR = 0
+SIDE_BAR = 200
+ARENA_H = HEIGHT - BOTTOM_BAR
+ARENA_W = WIDTH - SIDE_BAR
 
 trained_or_not = input("Do you want to use the trained network? (Y/N)")
 save_or_not = input("Do you want these networks to be saved? (Y/N)")
+num_of_models = int(input("How many networks do you want to use?"))
+Learning_choice = input("Enter which training algorithm you want to use (E/RL)")
 
-screen = pygame.display.set_mode((500,500),pygame.NOFRAME)
+screen = pygame.display.set_mode((WIDTH,HEIGHT))
 clock = pygame.time.Clock()
 
 pygame.font.init()
@@ -46,13 +54,7 @@ class NeuralNetwork:
         self.bias2 = numpy.where(mask < 0.05,mutation + self.bias2,self.bias2) #Mutation for Output Bias
 
     def save(self,filename="best_rocket_nn.npz"):
-        numpy.savez(
-            filename,
-            w1 = self.weights1,
-            b1 = self.bias1,
-            w2 = self.weights2,
-            b2 = self.bias2,
-        )
+        numpy.savez(filename,w1 = self.weights1,b1 = self.bias1,w2 = self.weights2,b2 = self.bias2,)
         print("The Best Network has been Saved")
 
     def load(self,filename):
@@ -64,7 +66,6 @@ class NeuralNetwork:
     
 class Rocket:
     def __init__(self,x,y):
-        self.frames_alive = 0
         self.fitness = 0
         self.active = True
 
@@ -82,6 +83,8 @@ class Rocket:
 
         self.gravity = 0.08
         self.thrust = 0.15
+
+        self.landed = False
 
     def thrust_engine(self, power):
         if self.fuel <= 0:
@@ -123,9 +126,6 @@ class Rocket:
 
         self.y += self.vy
         self.x += self.vx
-
-        self.frames_alive += 1
-
         self.fitness -= abs(self.get_normalised_angle()) * 0.5
 
         if self.y >= PAD_Y and random_x < self.x < random_x + 100:
@@ -144,13 +144,14 @@ class Rocket:
 
                 landing_bonus -= landing_precision * 40   
                 landing_bonus -= landing_angle * 100      
-                landing_bonus -= landing_speed * 1000   
-                landing_bonus -= self.frames_alive   
+                landing_bonus -= landing_speed * 1000    
 
                 landing_bonus += self.fuel * 20     
 
                 self.fitness += max(landing_bonus, 1000)
                 print(f"L {self.fitness}")
+
+                self.landed = True
             else:
                 self.calculate_fitness(random_x)
                 print(f"C {self.fitness}")
@@ -190,16 +191,16 @@ rocket = Rocket(240,100)
 
 random_x = random.randint(100,400)
 
-Font = pygame.font.SysFont(None, 40)
+TitleFont = pygame.font.SysFont("arial", 20, bold=True)
+ValueFont = pygame.font.SysFont("arial", 18, bold=True)
+Font = pygame.font.SysFont("arial", 12)
 
-population_size = 50
-
-rockets = [Rocket(240, 100) for _ in range(population_size)]
+rockets = [Rocket(240, 100) for _ in range(num_of_models)]
 
 print("New rockets:", len(rockets))
 print("First rocket:", rockets[0].x, rockets[0].y, rockets[0].active)
 
-networks = [NeuralNetwork(6) for _ in range(population_size)]
+networks = [NeuralNetwork(6) for _ in range(num_of_models)]
 
 Mutation_scale = 1
 
@@ -211,12 +212,14 @@ for network in networks:
 
 Running = True
 
+Best_Fitness = 0
+
 while Running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             Running = False
 
-    for i in range(population_size):
+    for i in range(num_of_models):
         rocket = rockets[i]
         nn = networks[i]
 
@@ -249,53 +252,97 @@ while Running:
 
 
     # NEW GENERATION
-    if all(not rocket.active for rocket in rockets):
-        sorted_indices = sorted(range(population_size), key=get_rocket_fitness, reverse=True)
+    if all(not rocket.active for rocket in rockets) and Learning_choice.lower() == 'e':
+        sorted_indices = sorted(range(num_of_models), key=get_rocket_fitness, reverse=True)
 
         # Top 5 Neural Nets
-        top_5_indices = sorted_indices[:5]
-    
-        # Print Highest score
-        best_index = top_5_indices[0]
+        num_elites = min(5, num_of_models)
+        top_indices = sorted_indices[:num_elites]
+
+        best_index = top_indices[0]
         print("Generation:", generation)
         print("Best fitness:", rockets[best_index].fitness)
         if save_or_not.lower() == 'y':
             networks[best_index].save("best_rocket_nn.npz")
-        
 
+        Best_Fitness = max(Best_Fitness,rockets[best_index].fitness)
+        
         new_networks = []
 
-        for i in top_5_indices:
+        for i in top_indices:
             new_networks.append(networks[i])
 
-        for _ in range(population_size-5):
-            parent_index = random.choice(top_5_indices)
+        for _ in range(num_of_models - num_elites):
+            parent_index = random.choice(top_indices)
             child = copy.deepcopy(networks[parent_index])
             child.mutate(Mutation_scale)
             new_networks.append(child)
 
         networks = new_networks
 
-        rockets = [Rocket(240, 100)for _ in range(population_size)]
+        rockets = [Rocket(240, 100)for _ in range(num_of_models)]
         random_x = random.randint(100, 400)
 
         generation += 1
         Mutation_scale = max(Mutation_scale - 0.02,0.02)
         print(f"{Mutation_scale:2f}")
 
+    if Learning_choice.lower() == 'rl':
+        pass
 
     # DRAW
-    screen.fill((0, 0, 0))
+    screen.fill((8, 10, 14))
+    pygame.draw.rect(screen,(31, 35, 44),(510,8,175,50))
+
+    pygame.draw.rect(screen,(31, 35, 44),(510,90,175,130))
+
+    for x in range(0, ARENA_W + 50, 50):
+        pygame.draw.line(screen, (31, 35, 44), (x, 0), (x, ARENA_H))
+    
+    for y in range(0, ARENA_H, 50):
+        pygame.draw.line(screen, (31, 35, 44), (0, y), (ARENA_W, y))
 
     pygame.draw.line(screen,(255, 255, 255),(random_x, 400),(random_x + 100, 400),2)
 
     pygame.draw.line(screen,(255, 255, 255),(0, 450),(500, 450),2)
 
-    text_surface = Font.render(f"Generation: {generation}", True, (255,255,255))
-    screen.blit(text_surface, (150, 462))
+    text_surface = TitleFont.render("AI Rocket Sim", True, (255,255,255))
+    screen.blit(text_surface, (520, 10))
+
+    if Learning_choice.lower() == 'rl':
+        text_surface = Font.render("Reinforcement Learning", True, (105, 171, 255))
+        screen.blit(text_surface, (525, 50))
+
+    else:
+        text_surface = Font.render("Evolutionary", True, (105, 171, 255))
+        screen.blit(text_surface, (525, 40))
+        text_surface = Font.render(f"Mutation Rate:", True, (255,255,255))
+        screen.blit(text_surface, (525, 160))
+        text_surface = ValueFont.render(f"{Mutation_scale:.2f}", True, (255,255,255))
+        screen.blit(text_surface, (620, 156))
+        text_surface = Font.render(f"All time Fitness:", True, (255,255,255))
+        screen.blit(text_surface, (525, 130))
+        text_surface = ValueFont.render(f"{int(Best_Fitness)}", True, (255,255,255))
+        screen.blit(text_surface, (620, 126))
+
+    text_surface = Font.render(f"Generation:", True, (255,255,255))
+    screen.blit(text_surface, (525, 100))
+    text_surface = ValueFont.render(f"{int(generation)}", True, (255,255,255))
+    screen.blit(text_surface, (620, 96))
+
+    landed = 0
 
     for rocket in rockets:
-        rocket.draw()
+        if rocket.landed:
+            landed += 1
+        if rocket.active or rocket.landed:
+            rocket.draw()
+
+    text_surface = Font.render(f"Number Landed: ", True, (255,255,255))
+    screen.blit(text_surface, (525, 190))
+    text_surface = ValueFont.render(f"{landed}", True, (255,255,255))
+    screen.blit(text_surface, (620, 186))
+
     pygame.display.flip()
     clock.tick(FPS)
     

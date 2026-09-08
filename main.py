@@ -2,18 +2,22 @@ import pygame, math, random, copy, numpy
 
 FPS = 60
 HEIGHT = 450
-WIDTH = 700
+WIDTH = 450
 BOTTOM_BAR = 0
-SIDE_BAR = 200
-ARENA_H = HEIGHT - BOTTOM_BAR
-ARENA_W = WIDTH - SIDE_BAR
 
-trained_or_not = input("Do you want to use the trained network? (Y/N)")
-save_or_not = input("Do you want these networks to be saved? (Y/N)")
-num_of_models = int(input("How many networks do you want to use?"))
-Learning_choice = input("Enter which training algorithm you want to use (E/RL)")
+choice = input("Do you care? ")
+if choice == 'n':
+    trained_or_not = 'y'
+    save_or_not = 'n'
+    num_of_models = 1
+    Learning_choice = 'e'
+else:
+    trained_or_not = input("Do you want to use the trained network? (Y/N)")
+    save_or_not = input("Do you want these networks to be saved? (Y/N)")
+    num_of_models = int(input("How many networks do you want to use?"))
+    Learning_choice = input("Enter which training algorithm you want to use (E/RL)")
 
-screen = pygame.display.set_mode((WIDTH,HEIGHT))
+screen = pygame.display.set_mode((WIDTH,HEIGHT),pygame.NOFRAME)
 clock = pygame.time.Clock()
 
 pygame.font.init()
@@ -292,56 +296,20 @@ while Running:
 
     # DRAW
     screen.fill((8, 10, 14))
-    pygame.draw.rect(screen,(31, 35, 44),(510,8,175,50))
 
-    pygame.draw.rect(screen,(31, 35, 44),(510,90,175,130))
-
-    for x in range(0, ARENA_W + 50, 50):
-        pygame.draw.line(screen, (31, 35, 44), (x, 0), (x, ARENA_H))
+    for x in range(0, WIDTH + 50, 50):
+        pygame.draw.line(screen, (31, 35, 44), (x, 0), (x, HEIGHT))
     
-    for y in range(0, ARENA_H, 50):
-        pygame.draw.line(screen, (31, 35, 44), (0, y), (ARENA_W, y))
+    for y in range(0, HEIGHT, 50):
+        pygame.draw.line(screen, (31, 35, 44), (0, y), (WIDTH, y))
 
     pygame.draw.line(screen,(255, 255, 255),(random_x, 400),(random_x + 100, 400),2)
 
     pygame.draw.line(screen,(255, 255, 255),(0, 450),(500, 450),2)
 
-    text_surface = TitleFont.render("AI Rocket Sim", True, (255,255,255))
-    screen.blit(text_surface, (520, 10))
-
-    if Learning_choice.lower() == 'rl':
-        text_surface = Font.render("Reinforcement Learning", True, (105, 171, 255))
-        screen.blit(text_surface, (525, 50))
-
-    else:
-        text_surface = Font.render("Evolutionary", True, (105, 171, 255))
-        screen.blit(text_surface, (525, 40))
-        text_surface = Font.render(f"Mutation Rate:", True, (255,255,255))
-        screen.blit(text_surface, (525, 160))
-        text_surface = ValueFont.render(f"{Mutation_scale:.2f}", True, (255,255,255))
-        screen.blit(text_surface, (620, 156))
-        text_surface = Font.render(f"All time Fitness:", True, (255,255,255))
-        screen.blit(text_surface, (525, 130))
-        text_surface = ValueFont.render(f"{int(Best_Fitness)}", True, (255,255,255))
-        screen.blit(text_surface, (620, 126))
-
-    text_surface = Font.render(f"Generation:", True, (255,255,255))
-    screen.blit(text_surface, (525, 100))
-    text_surface = ValueFont.render(f"{int(generation)}", True, (255,255,255))
-    screen.blit(text_surface, (620, 96))
-
-    landed = 0
-
     for rocket in rockets:
-        if rocket.landed:
-            landed += 1
         if rocket.active or rocket.landed:
             rocket.draw()
-
-    text_surface = Font.render(f"Number Landed: ", True, (255,255,255))
-    screen.blit(text_surface, (525, 190))
-    text_surface = ValueFont.render(f"{landed}", True, (255,255,255))
-    screen.blit(text_surface, (620, 186))
 
     pygame.display.flip()
     clock.tick(FPS)

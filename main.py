@@ -5,17 +5,9 @@ HEIGHT = 450
 WIDTH = 450
 BOTTOM_BAR = 0
 
-choice = input("Do you care? ")
-if choice == 'n':
-    trained_or_not = 'y'
-    save_or_not = 'n'
-    num_of_models = 1
-    Learning_choice = 'e'
-else:
-    trained_or_not = input("Do you want to use the trained network? (Y/N)")
-    save_or_not = input("Do you want these networks to be saved? (Y/N)")
-    num_of_models = int(input("How many networks do you want to use?"))
-    Learning_choice = input("Enter which training algorithm you want to use (E/RL)")
+trained_or_not = input("Do you want to use the trained network? (Y/N)")
+save_or_not = input("Do you want these networks to be saved? (Y/N)")
+num_of_models = int(input("How many networks do you want to use?"))
 
 screen = pygame.display.set_mode((WIDTH,HEIGHT),pygame.NOFRAME)
 clock = pygame.time.Clock()
@@ -256,7 +248,7 @@ while Running:
 
 
     # NEW GENERATION
-    if all(not rocket.active for rocket in rockets) and Learning_choice.lower() == 'e':
+    if all(not rocket.active for rocket in rockets):
         sorted_indices = sorted(range(num_of_models), key=get_rocket_fitness, reverse=True)
 
         # Top 5 Neural Nets
@@ -290,10 +282,6 @@ while Running:
         generation += 1
         Mutation_scale = max(Mutation_scale - 0.02,0.02)
         print(f"{Mutation_scale:2f}")
-
-    if Learning_choice.lower() == 'rl':
-        pass
-
     # DRAW
     screen.fill((8, 10, 14))
 

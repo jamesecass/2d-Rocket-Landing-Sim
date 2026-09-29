@@ -1,1 +1,2 @@
-# 2d-AI-Rockets
+# 2d-Rocket-Landing-Sim
+Evolutionary AI
